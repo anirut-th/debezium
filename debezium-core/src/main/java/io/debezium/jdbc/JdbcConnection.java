@@ -46,6 +46,10 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.azure.core.credential.TokenCredential;
+import com.azure.core.credential.TokenRequestContext;
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.microsoft.sqlserver.jdbc.SQLServerDataSource;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -234,16 +238,35 @@ public class JdbcConnection implements AutoCloseable {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Props: {}", propsWithMaskedPassword(props));
             }
-            LOGGER.trace("URL: {}", url);
+
             Connection conn = null;
             try {
-                ClassLoader driverClassLoader = classloader;
-                if (driverClassLoader == null) {
-                    driverClassLoader = JdbcConnection.class.getClassLoader();
+                boolean useActiveDirectory = Boolean.parseBoolean(props.getProperty("useActiveDirectory"));
+                if(useActiveDirectory) {
+                    LOGGER.info("Using Active Directory");
+                    String token = null;
+                    try {
+                        TokenCredential credential = new DefaultAzureCredentialBuilder().build();
+                        token = credential.getToken(new TokenRequestContext().addScopes("https://database.windows.net/.default")).block().getToken();
+                    }
+                    catch (Exception ex) {
+                        LOGGER.error("Error when trying to get token from IMDS endpoint", ex);
+                        throw ex;
+                    }
+                    // Create a SQLServerDataSource and set the access token
+                    SQLServerDataSource dataSource = new SQLServerDataSource();
+                    dataSource.setURL(url);
+                    dataSource.setAccessToken(token);
+                    conn = dataSource.getConnection();
+                } else {
+                    ClassLoader driverClassLoader = classloader;
+                    if (driverClassLoader == null) {
+                        driverClassLoader = JdbcConnection.class.getClassLoader();
+                    }
+                    Class<java.sql.Driver> driverClazz = (Class<java.sql.Driver>) Class.forName(driverClassName, true, driverClassLoader);
+                    java.sql.Driver driver = driverClazz.getDeclaredConstructor().newInstance();
+                    conn = driver.connect(url, props);
                 }
-                Class<java.sql.Driver> driverClazz = (Class<java.sql.Driver>) Class.forName(driverClassName, true, driverClassLoader);
-                java.sql.Driver driver = driverClazz.getDeclaredConstructor().newInstance();
-                conn = driver.connect(url, props);
             }
             catch (ClassNotFoundException | IllegalAccessException | InstantiationException | NoSuchMethodException | InvocationTargetException e) {
                 throw new SQLException(e);
