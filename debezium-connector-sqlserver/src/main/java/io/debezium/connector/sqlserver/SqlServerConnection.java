@@ -234,6 +234,8 @@ public class SqlServerConnection extends JdbcConnection {
     private static ConnectionFactory createConnectionFactory(SqlServerJdbcConfiguration config, boolean useSingleDatabase) {
         // Check if Azure Managed Identity authentication is enabled
         // Users can enable this by adding "useActiveDirectory=true" to their connector configuration
+        // Note: Consider extracting "useActiveDirectory" to a SqlServerConnectorConfig constant
+        // for consistency and to prevent typos if referenced elsewhere in the codebase
         // If the property is not set, it defaults to false (standard JDBC authentication)
         String useActiveDirectoryStr = config.getString("useActiveDirectory");
         boolean useActiveDirectory = useActiveDirectoryStr != null && Boolean.parseBoolean(useActiveDirectoryStr);

@@ -55,6 +55,9 @@ public class SqlServerAzureManagedIdentityConnectionFactory {
 
     /**
      * Creates a new instance of the connection factory.
+     * Note: DefaultAzureCredentialBuilder initialization can be expensive as it sets up
+     * multiple credential types and authentication chains. This is acceptable since
+     * the factory is created once per connection and reused for the lifetime of the connection.
      */
     public SqlServerAzureManagedIdentityConnectionFactory() {
         this.credential = new DefaultAzureCredentialBuilder().build();
