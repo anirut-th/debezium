@@ -124,6 +124,8 @@ public class SqlServerAzureManagedIdentityConnectionFactory {
             TokenRequestContext requestContext = new TokenRequestContext().addScopes(AZURE_SQL_DATABASE_SCOPE);
             
             // Use block with timeout to avoid indefinite blocking
+            // This call may throw a runtime exception if the timeout is exceeded
+            // or if there's an authentication error from the Azure Identity service
             cachedToken = credential.getToken(requestContext)
                     .block(TOKEN_RETRIEVAL_TIMEOUT);
             
