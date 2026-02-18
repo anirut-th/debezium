@@ -153,7 +153,7 @@ public class SqlServerAzureManagedIdentityConnectionFactory {
      * @return true if the token is valid and has more than TOKEN_REFRESH_BUFFER time before expiration
      */
     private boolean isTokenValid(AccessToken token) {
-        if (token == null) {
+        if (token == null || token.getExpiresAt() == null) {
             return false;
         }
         
