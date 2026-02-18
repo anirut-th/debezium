@@ -232,6 +232,39 @@ public class SqlServerConnection extends JdbcConnection {
     }
 
     private static ConnectionFactory createConnectionFactory(SqlServerJdbcConfiguration config, boolean useSingleDatabase) {
+        // Check if Azure Managed Identity authentication is enabled
+        // Users can enable this by adding "useActiveDirectory=true" to their connector configuration
+        // Note: Consider extracting "useActiveDirectory" to a SqlServerConnectorConfig constant
+        // for consistency and to prevent typos if referenced elsewhere in the codebase
+        // If the property is not set, it defaults to false (standard JDBC authentication)
+        String useActiveDirectoryStr = config.getString("useActiveDirectory");
+        boolean useActiveDirectory = useActiveDirectoryStr != null && Boolean.parseBoolean(useActiveDirectoryStr);
+        
+        if (useActiveDirectory) {
+            LOGGER.info("Creating SQL Server connection factory with Azure Managed Identity authentication");
+            final SqlServerAzureManagedIdentityConnectionFactory azureFactory = new SqlServerAzureManagedIdentityConnectionFactory();
+            final String urlPattern = createUrlPattern(config, useSingleDatabase);
+            
+            // Return a connection factory that uses Azure authentication
+            return (jdbcConfig) -> {
+                Properties props = jdbcConfig.asProperties();
+                
+                // Build the URL by replacing variables in the pattern
+                String url = urlPattern
+                    .replace("${" + JdbcConfiguration.HOSTNAME.name() + "}", 
+                             props.getProperty(JdbcConfiguration.HOSTNAME.name(), "localhost"))
+                    .replace("${" + JdbcConfiguration.PORT.name() + "}", 
+                             props.getProperty(JdbcConfiguration.PORT.name(), 
+                                             SqlServerConnectorConfig.PORT.defaultValueAsString()))
+                    .replace("${" + JdbcConfiguration.DATABASE.name() + "}", 
+                             props.getProperty(JdbcConfiguration.DATABASE.name(), ""));
+                
+                LOGGER.debug("Creating Azure Managed Identity connection to: {}", url);
+                return azureFactory.createConnection(url, props);
+            };
+        }
+        
+        // Use standard JDBC authentication
         return JdbcConnection.patternBasedFactory(createUrlPattern(config, useSingleDatabase),
                 SQLServerDriver.class.getName(),
                 SqlServerConnection.class.getClassLoader(),
