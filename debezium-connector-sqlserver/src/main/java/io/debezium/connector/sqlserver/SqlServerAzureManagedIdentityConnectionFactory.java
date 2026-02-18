@@ -159,12 +159,14 @@ public class SqlServerAzureManagedIdentityConnectionFactory {
             return false;
         }
         
+        // Store expiry time in local variable for thread safety
+        OffsetDateTime expiresAt = token.getExpiresAt();
         Instant now = Instant.now();
-        Instant expiryThreshold = token.getExpiresAt().minus(TOKEN_REFRESH_BUFFER);
+        Instant expiryThreshold = expiresAt.toInstant().minus(TOKEN_REFRESH_BUFFER);
         
         boolean isValid = now.isBefore(expiryThreshold);
         if (!isValid) {
-            LOGGER.debug("Cached token is expired or about to expire (expires at: {})", token.getExpiresAt());
+            LOGGER.debug("Cached token is expired or about to expire (expires at: {})", expiresAt);
         }
         
         return isValid;
