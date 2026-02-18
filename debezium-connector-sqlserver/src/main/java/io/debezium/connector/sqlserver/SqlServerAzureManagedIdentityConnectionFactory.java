@@ -51,7 +51,7 @@ public class SqlServerAzureManagedIdentityConnectionFactory {
 
     private final TokenCredential credential;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    private AccessToken cachedToken;
+    private volatile AccessToken cachedToken;
 
     /**
      * Creates a new instance of the connection factory.
@@ -160,7 +160,7 @@ public class SqlServerAzureManagedIdentityConnectionFactory {
             return false;
         }
         
-        // Store expiry time in local variable for thread safety
+        // Get expiry time (OffsetDateTime is immutable, so this is thread-safe)
         OffsetDateTime expiresAt = token.getExpiresAt();
         Instant now = Instant.now();
         Instant expiryThreshold = expiresAt.toInstant().minus(TOKEN_REFRESH_BUFFER);
